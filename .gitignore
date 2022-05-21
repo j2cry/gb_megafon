@@ -1,2 +1,5 @@
-/venv/
+/venv*/
 /data/
+/dask-worker-space/
+draft.ipynb
+TODO.txt
