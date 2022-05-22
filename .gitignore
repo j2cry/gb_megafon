@@ -1,5 +1,6 @@
 /venv*/
+/__pycache__/
 /data/
 /dask-worker-space/
-draft.ipynb
+/drafts/
 TODO.txt
