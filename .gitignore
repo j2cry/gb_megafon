@@ -1,6 +1,9 @@
 /venv*/
 /__pycache__/
-/data/
+/data/*
+!/data/feat_describe.csv
+!/data/covariance.csv
+!/data/correlation.csv
 /dask-worker-space/
 /drafts/
 TODO.txt
