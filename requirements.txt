@@ -15,6 +15,7 @@ backcall==0.2.0
 blinker==1.4
 bokeh==2.4.3
 cachelib==0.7.0
+catboost==1.0.6
 cattrs==1.10.0
 certifi==2022.5.18.1
 cffi==1.15.0
@@ -104,6 +105,7 @@ pendulum==2.1.2
 pexpect==4.8.0
 pickleshare==0.7.5
 Pillow==9.1.1
+plotly==5.8.0
 pluggy==1.0.0
 prison==0.2.1
 prompt-toolkit==3.0.29
@@ -156,5 +158,6 @@ wcwidth==0.2.5
 Werkzeug==1.0.1
 wrapt==1.14.1
 WTForms==2.3.3
+xgboost==1.6.1
 zict==2.2.0
 zipp==3.8.0
