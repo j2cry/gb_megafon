@@ -43,5 +43,14 @@ def compress_features(features_path, drop_feats, target_path):
     features.repartition(1).write.mode('overwrite').csv(target_path, header=True, sep=',')
 
 
+def search_params(grid_path, train_path, features_path):
+    """ GridSearch over given parameters
+    :param grid_path: path to the .json file with parameters collection
+    :param train_path: path to the train data file
+    :param features_path: path to the features file
+    """
+    import json
+
+
 def fit_model(train_path, features_path, **kwargs):
     pass

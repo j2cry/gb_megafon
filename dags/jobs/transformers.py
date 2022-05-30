@@ -1,6 +1,7 @@
 import numpy as np
 import datetime as dt
 from sklearn.base import TransformerMixin
+from sklearn.cluster import KMeans
 
 
 class TypeRecast(TransformerMixin):
@@ -59,3 +60,33 @@ class ColumnsCorrector(TransformerMixin):
         absenting = list(set(X.columns) ^ set(self.required_order))
         df[absenting] = self.fill_value
         return df[self.required_order]
+
+
+class TimeDifference(TransformerMixin):
+    """ Calculate days difference between two given timestamps """
+    def __init__(self, time_1, time_2):
+        self.time_1 = time_1
+        self.time_2 = time_2
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+
+    def transform(self, X):
+        df = X.copy()        
+        df['time_diff'] = (df[self.time_2].astype('datetime64[s]').dt.date - df[self.time_1].astype('datetime64[s]').dt.date).dt.days
+        return df
+
+
+class Clusterer(TransformerMixin):
+    def __init__(self, columns, **params):
+        self.columns = columns
+        self.__kmeans = KMeans(**params)
+
+    def fit(self, X, y=None, **fit_params):        
+        self.__kmeans.fit(X[self.columns], y)
+        return self
+    
+    def transform(self, X):
+        df = X.copy()
+        df['cluster'] = self.__kmeans.predict(X[self.columns])
+        return df

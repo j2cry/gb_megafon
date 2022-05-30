@@ -25,7 +25,6 @@ path = {
     'jobs': base_path.joinpath('dags', GROUP_NAME, 'jobs'),  # jobs folder
     'data': base_path.joinpath('data', GROUP_NAME),  # shared data folder
 }
-path['train_data'] = path['data'].joinpath('data_train.csv')  # source train data
 path['input_features'] = path['data'].joinpath('features.csv')  # source features
 path['output_features'] = path['data'].joinpath('compressed_features.csv')
 path['temp'] = path['data'].joinpath('.temp')  # temporary filename

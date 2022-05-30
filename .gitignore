@@ -1,11 +1,11 @@
 /.idea/
-/venv*/
+/*venv*/
 **/__pycache__/
 /data/*
 !/data/feat_describe.csv
 !/data/covariance.csv
 !/data/correlation.csv
-/dask-worker-space/
+**/dask-worker-space/
 /drafts/*
 !/drafts/pyspark_pca.ipynb
 fit.logs
