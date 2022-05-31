@@ -103,13 +103,6 @@ class Merger(TransformerMixin):
         return self
     
     def transform(self, X):
-        # backward merge + fillna with mean
-        # df = pd.merge_asof(X.sort_values(by='buy_time').rename(columns={'buy_time': 'train_time'}), 
-        #                    self.features.sort_values(by='buy_time').rename(columns={'buy_time': 'feats_time'}),
-        #                    by='id', left_on='train_time', right_on='feats_time', direction=self.method)
-        # df.fillna(df.mean(), inplace=True)
-
-        # backward merge + fillna with nearest merge
         df = pd.merge_asof(X.sort_values(by='buy_time').rename(columns={'buy_time': 'train_time'}), 
                                self.features.rename(columns={'buy_time': 'feats_time'}),
                                by='id', left_on='train_time', right_on='feats_time', direction='backward')
