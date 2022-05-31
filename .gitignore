@@ -10,5 +10,5 @@
 **/dask-worker-space/
 /drafts/*
 !/drafts/pyspark_pca.ipynb
-fit.logs
+fit.log
 TODO.txt

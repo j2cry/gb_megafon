@@ -95,7 +95,7 @@ class Clusterer(TransformerMixin):
 
 class Merger(TransformerMixin):
     def __init__(self, features, method='backward', fillna='mean'):
-        self.features = features.reset_index().sort_values(by=['buy_time', 'id', 'index']).drop('index', axis=1)
+        self.features = features.reset_index().sort_values(by=['buy_time', 'id']).drop('index', axis=1)
         self.method = method
         self.fillna = fillna
 
@@ -104,9 +104,9 @@ class Merger(TransformerMixin):
     
     def transform(self, X):
         # extract required and sort train data
-        actual = self.features['id'].isin(X['id'].unique())
+        actual = self.features['id'].isin(X['id'].unique()) # this is not necessary, but reduces the amount of data to merge
         # merge
-        X_sorted = X.reset_index().sort_values(by=['buy_time', 'id', 'index']).drop('index', axis=1)
+        X_sorted = X.reset_index().sort_values(by=['buy_time', 'id', 'index'])
         df = pd.merge_asof(X_sorted.rename(columns={'buy_time': 'train_time'}), 
                            self.features[actual].rename(columns={'buy_time': 'feats_time'}),
                            by='id', left_on='train_time', right_on='feats_time', direction=self.method)
@@ -117,8 +117,8 @@ class Merger(TransformerMixin):
             df[nan_rows] = pd.merge_asof(df[nan_rows].drop(nan_columns, axis=1), 
                                             self.features[actual].rename(columns={'buy_time': 'feats_time'}), 
                                             by='id', left_on='train_time', right_on='feats_time', direction='nearest').values
-        else:
+        elif self.fillna == 'mean':
             df.fillna(df.mean(), inplace=True)
         
-        return df
+        return df.sort_values('index').drop('index', axis=1).set_index(X.index)     # restore original indices
         
