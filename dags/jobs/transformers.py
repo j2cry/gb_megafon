@@ -95,7 +95,7 @@ class Clusterer(TransformerMixin):
 
 class Merger(TransformerMixin):
     def __init__(self, features, method='backward', fillna='mean'):
-        self.features = features.sort_values(by='buy_time').copy()
+        self.features = features.reset_index().sort_values(by=['buy_time', 'id', 'index']).drop('index', axis=1)
         self.method = method
         self.fillna = fillna
 
@@ -103,15 +103,19 @@ class Merger(TransformerMixin):
         return self
     
     def transform(self, X):
-        df = pd.merge_asof(X.sort_values(by='buy_time').rename(columns={'buy_time': 'train_time'}), 
-                               self.features.rename(columns={'buy_time': 'feats_time'}),
-                               by='id', left_on='train_time', right_on='feats_time', direction='backward')
+        # extract required and sort train data
+        actual = self.features['id'].isin(X['id'].unique())
+        # merge
+        X_sorted = X.reset_index().sort_values(by=['buy_time', 'id', 'index']).drop('index', axis=1)
+        df = pd.merge_asof(X_sorted.rename(columns={'buy_time': 'train_time'}), 
+                           self.features[actual].rename(columns={'buy_time': 'feats_time'}),
+                           by='id', left_on='train_time', right_on='feats_time', direction=self.method)
         if self.fillna == 'nearest':
             nan_rows = df.isna().any(axis=1)
             nan_columns = df.columns[df.isna().any()].to_list()
 
             df[nan_rows] = pd.merge_asof(df[nan_rows].drop(nan_columns, axis=1), 
-                                            self.features.rename(columns={'buy_time': 'feats_time'}), 
+                                            self.features[actual].rename(columns={'buy_time': 'feats_time'}), 
                                             by='id', left_on='train_time', right_on='feats_time', direction='nearest').values
         else:
             df.fillna(df.mean(), inplace=True)
