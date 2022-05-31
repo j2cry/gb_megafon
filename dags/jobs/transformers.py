@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import datetime as dt
 from sklearn.base import TransformerMixin
 from sklearn.cluster import KMeans
@@ -90,3 +91,37 @@ class Clusterer(TransformerMixin):
         df = X.copy()
         df['cluster'] = self.__kmeans.predict(X[self.columns])
         return df
+
+
+class Merger(TransformerMixin):
+    def __init__(self, features, method='backward', fillna='mean'):
+        self.features = features.sort_values(by='buy_time').copy()
+        self.method = method
+        self.fillna = fillna
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+    
+    def transform(self, X):
+        # backward merge + fillna with mean
+        # df = pd.merge_asof(X.sort_values(by='buy_time').rename(columns={'buy_time': 'train_time'}), 
+        #                    self.features.sort_values(by='buy_time').rename(columns={'buy_time': 'feats_time'}),
+        #                    by='id', left_on='train_time', right_on='feats_time', direction=self.method)
+        # df.fillna(df.mean(), inplace=True)
+
+        # backward merge + fillna with nearest merge
+        df = pd.merge_asof(X.sort_values(by='buy_time').rename(columns={'buy_time': 'train_time'}), 
+                               self.features.rename(columns={'buy_time': 'feats_time'}),
+                               by='id', left_on='train_time', right_on='feats_time', direction='backward')
+        if self.fillna == 'nearest':
+            nan_rows = df.isna().any(axis=1)
+            nan_columns = df.columns[df.isna().any()].to_list()
+
+            df[nan_rows] = pd.merge_asof(df[nan_rows].drop(nan_columns, axis=1), 
+                                            self.features.rename(columns={'buy_time': 'feats_time'}), 
+                                            by='id', left_on='train_time', right_on='feats_time', direction='nearest').values
+        else:
+            df.fillna(df.mean(), inplace=True)
+        
+        return df
+        
