@@ -29,7 +29,7 @@ def cv_fit(estimator, X, y, *, cv, pipe=None, scorer=f1_score, logger=None, pref
 
     for train_index, valid_index in cv.split(y):
         # apply featuring pipeline
-        X_train = pipe.fit_transform(X.iloc[train_index], y) if pipe is not None else X.iloc[train_index]
+        X_train = pipe.fit_transform(X.iloc[train_index], y.iloc[train_index]) if pipe is not None else X.iloc[train_index]
         X_valid = pipe.transform(X.iloc[valid_index]) if pipe is not None else X.iloc[valid_index]
         # exctract targets and push them to the cluster
         y_train = y.iloc[train_index]
@@ -97,7 +97,6 @@ def cv_compare(estimators, X, y, *, grids, cv, pipe=None, scorer=f1_score, logge
         'WH score': [],
     }
     # GridSearch for selected estimator
-    models = []
     for est, params in zip(estimators, grids):
         gscv = GridSearchCV(est, params, cv=cv, scoring=grid_scorer)
         gscv.fit(X, y)
@@ -111,8 +110,7 @@ def cv_compare(estimators, X, y, *, grids, cv, pipe=None, scorer=f1_score, logge
         result['model'].append(est.__class__.__name__)
         result['GS score'].append(gscv.best_score_)
         result['CV score'].append(avg)
-        result['WH score'].append(score)
-        models.append(gscv.best_estimator_)
+        result['WH score'].append(score)        
         if logger is not None:
             logger.info(f'[GridSearchCV] {est.__class__.__name__} params={gscv.best_params_}')
-    return result, models
+    return result, gscv

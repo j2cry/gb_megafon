@@ -10,5 +10,7 @@
 **/dask-worker-space/
 /drafts/*
 !/drafts/pyspark_pca.ipynb
+data_test.csv
 fit.log
+model.pkl
 TODO.txt

@@ -60,10 +60,11 @@ def search_params(grid_path, train_path, features_path):
     import pandas as pd
 
 
-def fit_model(jobs_path, train_path, features_path, model_params_path, fit_params_path, export_path):
+def fit_model_job(jobs_path, train_path, features_path, model_params_path, fit_params_path, export_path):
     """ Fit and export model """
     import sys
     sys.path.append(jobs_path)
+    import pathlib
     import json
     import cloudpickle
     import configparser
@@ -71,7 +72,7 @@ def fit_model(jobs_path, train_path, features_path, model_params_path, fit_param
     import datetime as dt
     from sklearn.utils.class_weight import compute_class_weight
     from sklearn.pipeline import make_pipeline
-    from transformers import Merger, TimeDifference, Clusterer, ColumnsCorrector
+    from transformers import Merger, TimeDifference, Clusterer, ColumnsCorrector, PurchaseRatio, BasicFiller
     # from lightgbm import LGBMClassifier       # OSError: libgomp.so.1 not found
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.metrics import f1_score
@@ -93,33 +94,37 @@ def fit_model(jobs_path, train_path, features_path, model_params_path, fit_param
     features = pd.read_csv(features_path)
 
     # calc class weights
-    class_weights = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
+    if config['MODEL']['recalc_class_weights'] == 'True':
+        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
 
     # build featuring pipeline
     pipeline = make_pipeline(
         Merger(features, method='backward', fillna='nearest'),
         TimeDifference('feats_time', 'train_time'),
-        # Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
-        ColumnsCorrector('drop', ['id', 'train_time', 'feats_time']),        
+        Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
+        PurchaseRatio(by=['cluster']),
+        ColumnsCorrector('drop', ['id', 'train_time', 'feats_time']),
+        BasicFiller('mean', apply_on_fly=True),
         # LGBMClassifier(random_state=17, class_weight='balanced', n_jobs=-1, **fit_params)
-        RandomForestClassifier(random_state=17, class_weight=class_weights, n_jobs=-1, **fit_params)
+        RandomForestClassifier(**fit_params)
     )
     # fit model
     pipeline.fit(train_data.drop('target', axis=1), target)
-
+    # log metric
     metric = f1_score(target, pipeline.predict(train_data.drop('target', axis=1)), average='macro')
-    with open(export_path + '.metric', 'w') as f:
-        f.write(str(metric))
+    with open(pathlib.Path(model_params_path).parent.joinpath('metric.log'), 'a') as f:
+        f.write(f'{dt.datetime.today().isoformat()} > metric on whole train data: {metric}; parameters={pipeline[-1].get_params()}\n')
     # save model
-    cloudpickle.dump(pipeline, open(export_path, 'wb'))     # сохраняются пути импорта библиотек! и по какой-то причине колоссальное отличие метрики
+    cloudpickle.dump(pipeline, open(export_path, 'wb'))     # сохраняются и пути импорта библиотек!
     # import dill
     # dill.dump(pipeline, open(export_path + '.dill', 'wb'))
 
 
-def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_path):
+def cv_fit_job(jobs_path, train_path, features_path, model_params_path, fit_params_path):
     """ DEBUG CROSS-FIT """
     import sys
     sys.path.append(jobs_path)
+    import pathlib
     import json
     import configparser
     import pandas as pd
@@ -128,7 +133,7 @@ def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_p
     from sklearn.utils.class_weight import compute_class_weight
     from sklearn.model_selection import KFold
     from sklearn.pipeline import make_pipeline
-    from transformers import Merger, TimeDifference, Clusterer, ColumnsCorrector
+    from transformers import Merger, TimeDifference, Clusterer, ColumnsCorrector, PurchaseRatio, BasicFiller
     # from lightgbm import LGBMClassifier       # OSError: libgomp.so.1 not found
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.metrics import f1_score
@@ -151,7 +156,8 @@ def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_p
     features = pd.read_csv(features_path)
 
     # calc class weights
-    class_weights = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
+    if config['MODEL']['recalc_class_weights'] == 'True':
+        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=29)
     # f1_macro = partial(f1_score, average='macro')
 
@@ -159,8 +165,10 @@ def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_p
     pipeline = make_pipeline(
         Merger(features, method='backward', fillna='nearest'),
         TimeDifference('feats_time', 'train_time'),
-        # Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
-        ColumnsCorrector('drop', ['id', 'train_time', 'feats_time']),        
+        Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
+        PurchaseRatio(by=['cluster']),
+        ColumnsCorrector('drop', ['id', 'train_time', 'feats_time']),
+        BasicFiller('mean', apply_on_fly=True),
         # LGBMClassifier(random_state=17, class_weight='balanced', n_jobs=-1, **fit_params)
         # RandomForestClassifier(random_state=17, class_weight=class_weights, n_jobs=-1, **fit_params)
     )
@@ -176,7 +184,7 @@ def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_p
         y_train = target.iloc[train_index]
         y_valid = target.iloc[valid_index]
 
-        model = RandomForestClassifier(random_state=17, class_weight=class_weights, n_jobs=-1, **fit_params).fit(X_train, y_train)
+        model = RandomForestClassifier(**fit_params).fit(X_train, y_train)
 
         # predicts & metrics
         prediction = model.predict(X_valid)
@@ -186,5 +194,5 @@ def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_p
         metrics.append(score)
     
     avg = sum(metrics) / len(metrics)
-    with open('/opt/airflow/data/debug.log', 'w') as f:
-        f.write(str(avg))
+    with open(pathlib.Path(model_params_path).parent.joinpath('metric.log'), 'a') as f:
+        f.write(f'{dt.datetime.today().isoformat()} > Avg. metric on {n_folds} folds: {avg}; parameters={model.get_params()}\n')
