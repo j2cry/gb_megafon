@@ -2,7 +2,7 @@ import sys
 import pathlib
 sys.path.append(pathlib.Path().joinpath('dags', 'megafon').as_posix())
 
-import common
+import settings
 from datetime import datetime
 from airflow import DAG
 # from airflow.decorators import task
@@ -13,15 +13,15 @@ from airflow.sensors.filesystem import FileSensor
 
 
 with DAG('PCA_features', description='Geekbrains+Megafon DataScience course (prepare features)',
-         schedule_interval=None, catchup=False, default_args=common.args) as dag:
+         schedule_interval=None, catchup=False, default_args=settings.args) as dag:
     # refresh imports
-    sys.path.append(common.path['dag'].as_posix())
-    from jobs.source import compress_features
+    sys.path.append(settings.path['dag'].as_posix())
+    from jobs.common import compress_features
 
     # tasks
     raw_feats_waiting = FileSensor(
         task_id='waiting_for_raw_features',
-        filepath=common.path['raw_features'].as_posix(),
+        filepath=settings.path['raw_features'].as_posix(),
         fs_conn_id='fs_default'
     )
 
@@ -36,16 +36,16 @@ with DAG('PCA_features', description='Geekbrains+Megafon DataScience course (pre
     compress_feats = PythonOperator(          # THIS FOR DEBUG ONLY
         task_id='compress_features_with_PCA',
         python_callable=compress_features,
-        op_args=[common.path['raw_features'].as_posix(),    # features_path
-                 common.path['model_params'].as_posix(),    # params_path
-                 common.path['temp'].as_posix(),            # target_path
+        op_args=[settings.path['raw_features'].as_posix(),    # features_path
+                 settings.path['model_params'].as_posix(),    # params_path
+                 settings.path['temp'].as_posix(),            # target_path
                  ]
     )
 
     move_feats = BashOperator(
         task_id='move_features',
-        bash_command=f"mv {common.path['temp'].as_posix() + '/*.csv'} {common.path['pca_features'].as_posix()};"
-                     f"rm -rf {common.path['temp'].as_posix()}"
+        bash_command=f"mv {settings.path['temp'].as_posix() + '/*.csv'} {settings.path['pca_features'].as_posix()};"
+                     f"rm -rf {settings.path['temp'].as_posix()}"
     )
 
     # tasks order

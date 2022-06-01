@@ -2,40 +2,40 @@ import sys
 import pathlib
 sys.path.append(pathlib.Path().joinpath('dags', 'megafon').as_posix())
 
-import common
+import settings
 from airflow import DAG
 from airflow.sensors.filesystem import FileSensor
 from airflow.operators.python import PythonVirtualenvOperator, PythonOperator
 
 
 with DAG('fit_model', description='Geekbrains+Megafon DataScience course (search for best parameters)',
-         schedule_interval=None, catchup=False, default_args=common.args) as dag:
+         schedule_interval=None, catchup=False, default_args=settings.args) as dag:
     # refresh imports
-    sys.path.append(common.path['dag'].as_posix())
-    from jobs.source import fit_model
+    sys.path.append(settings.path['dag'].as_posix())
+    from jobs.common import fit_model
 
     # tasks
     train_waiting = FileSensor(
         task_id='waiting_for_train_data',
-        filepath=common.path['train'].as_posix(),
+        filepath=settings.path['train'].as_posix(),
         fs_conn_id='fs_default'
     )
 
     pca_feats_waiting = FileSensor(
         task_id='waiting_for_pca_features',
-        filepath=common.path['pca_features'].as_posix(),
+        filepath=settings.path['pca_features'].as_posix(),
         fs_conn_id='fs_default'
     )
 
     model_parameters_waiting = FileSensor(
         task_id='waiting_for_model_parameters',
-        filepath=common.path['model_params'].as_posix(),
+        filepath=settings.path['model_params'].as_posix(),
         fs_conn_id='fs_default'
     )
 
     fit_parameters_waiting = FileSensor(
         task_id='waiting_for_fit_parameters',
-        filepath=common.path['fit_params'].as_posix(),
+        filepath=settings.path['fit_params'].as_posix(),
         fs_conn_id='fs_default'
     )
 
@@ -46,12 +46,12 @@ with DAG('fit_model', description='Geekbrains+Megafon DataScience course (search
         python_version='3.9',
         task_id='fit_model',
         python_callable=fit_model,
-        op_args=[common.path['jobs'].as_posix(),
-                 common.path['train'].as_posix(),
-                 common.path['pca_features'].as_posix(),
-                 common.path['model_params'].as_posix(),
-                 common.path['fit_params'].as_posix(),
-                 common.path['export'].as_posix()
+        op_args=[settings.path['jobs'].as_posix(),
+                 settings.path['train'].as_posix(),
+                 settings.path['pca_features'].as_posix(),
+                 settings.path['model_params'].as_posix(),
+                 settings.path['fit_params'].as_posix(),
+                 settings.path['export'].as_posix()
                  ]
     )
 

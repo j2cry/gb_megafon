@@ -169,10 +169,10 @@ def cv_fit(jobs_path, train_path, features_path, model_params_path, fit_params_p
     models = []
 
     for train_index, valid_index in folds.split(target):
-        # push train/valid dataframes to the cluster
+        # extract data
         X_train = train_data.iloc[train_index]
         X_valid = train_data.iloc[valid_index]
-        # exctract targets and push them to the cluster
+        # exctract target
         y_train = target.iloc[train_index]
         y_valid = target.iloc[valid_index]
 

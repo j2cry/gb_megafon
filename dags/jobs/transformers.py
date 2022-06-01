@@ -121,4 +121,55 @@ class Merger(TransformerMixin):
             df.fillna(df.mean(), inplace=True)
         
         return df.sort_values('index').drop('index', axis=1).set_index(X.index)     # restore original indices
-        
+
+
+class AsDummies(TransformerMixin):
+    def __init__(self, columns):
+        assert isinstance(columns, list), '`columns` must be a list'
+        self.columns = columns
+
+    def fit(self, X, y=None, **fit_params):        
+        return self
+    
+    def transform(self, X):
+        df = X.copy()
+        dummies = pd.get_dummies(df[self.columns].astype('category'))
+        df[dummies.columns] = dummies.values
+        return df
+
+
+class PurchaseRatio(TransformerMixin):
+    def __init__(self, by):
+        self.ratio = None
+        assert isinstance(by, list), '`by` must be a list'
+        self.by = by
+
+    def fit(self, X, y=None, **fit_params):
+        if y is not None:
+            df = X.copy()
+            df['target'] = y.values
+            self.ratio = (df.groupby(['vas_id', *self.by])['target'].sum() / df.groupby(['vas_id', *self.by])['target'].count())\
+                            .reset_index().rename(columns={'target': 'purchase_ratio'})
+        return self
+    
+    def transform(self, X):
+        df = X.copy()
+        if self.ratio is not None:
+            return df.merge(self.ratio, on=['vas_id', *self.by], how='left')
+        return df
+
+
+class BasicFiller(TransformerMixin):
+    def __init__(self, method='mean', *, apply_on_fly=True):
+        self.method = method
+        self.apply_on_fly = apply_on_fly
+        self.values = None
+
+    def fit(self, X, y=None, **fit_params):
+        self.values = X.agg(self.method)
+        return self
+    
+    def transform(self, X):
+        df = X.copy()        
+        df.fillna(X.agg(self.method) if self.apply_on_fly else self.values, inplace=True)
+        return df
