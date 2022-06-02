@@ -1,3 +1,35 @@
+# TODO optimization/cleancode
+
+# def pipeline(features, fit_params):
+#     """ Model pipeline """    
+#     import transformers
+#     from sklearn.pipeline import make_pipeline
+#     # from lightgbm import LGBMClassifier       # OSError: libgomp.so.1 not found
+#     from sklearn.ensemble import RandomForestClassifier
+
+#     return make_pipeline(
+#         transformers.Merger(features, method='backward', fillna='nearest'),
+#         transformers.TimeDifference('feats_time', 'train_time'),
+#         transformers.Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
+#         transformers.PurchaseRatio(by=['cluster']),
+#         transformers.ColumnsCorrector('drop', ['id', 'train_time', 'feats_time']),
+#         transformers.BasicFiller('mean', apply_on_fly=True),
+#         # LGBMClassifier(random_state=17, class_weight='balanced', n_jobs=-1, **fit_params)
+#         RandomForestClassifier(**fit_params)
+#     )
+
+# def folds(n_folds):
+#     from sklearn.model_selection import KFold
+#     return KFold(n_splits=n_folds, shuffle=True, random_state=29)
+
+    
+# def grid_scorer(estimator, X_test, y_test):
+#     from sklearn.metrics import f1_score
+#     pred = estimator.predict(X_test)
+#     return f1_score(y_test, pred, average='macro')
+
+
+# ===============================================================================
 def run_spark_executor(ram):
     """ Run local Spark executor
         THIS IS DEVELOPMENT/DEBUG FEATURE ONLY
@@ -12,11 +44,11 @@ def run_spark_executor(ram):
     return SparkSession.builder.config(conf=config).getOrCreate()
 
 
+# ===============================================================================
 def compress_features(features_path, model_params_path, target_path):
     """ Compress features with PCA
-    :param spark: Spark context
     :param features_path: path to the features file
-    :param drop_feats: columns to drop before processing
+    :param model_params_path: model parameters file
     :param target_path: path to the result file
     """
     import ast
@@ -50,16 +82,76 @@ def compress_features(features_path, model_params_path, target_path):
     features.repartition(1).write.mode('overwrite').csv(target_path, header=True, sep=',')
 
 
-def search_params(grid_path, train_path, features_path):
-    """ GridSearch over given parameters
-    :param grid_path: path to the .json file with parameters collection
-    :param train_path: path to the train data file
-    :param features_path: path to the features file
-    """
+# ===============================================================================
+def search_params(jobs_path, pipeline, grid_path, train_path, features_path, model_params_path, fit_params_path):
+    """ GridSearch over given parameters """
+    import sys
+    sys.path.append(jobs_path)
     import json
+    import configparser
     import pandas as pd
+    import datetime as dt
+    from sklearn.model_selection import KFold
+    from sklearn.utils.class_weight import compute_class_weight
+    from sklearn.pipeline import make_pipeline
+    from transformers import Merger, TimeDifference, Clusterer, ColumnsCorrector, PurchaseRatio, BasicFiller
+    # from lightgbm import LGBMClassifier       # OSError: libgomp.so.1 not found
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.metrics import f1_score
+
+    def grid_scorer(estimator, X_test, y_test):
+        from sklearn.metrics import f1_score
+        pred = estimator.predict(X_test)
+        return f1_score(y_test, pred, average='macro')
+
+    # load grid
+    grid = json.load(open(grid_path, 'r'))
+
+    # read model parameters
+    config = configparser.ConfigParser()
+    config.read(model_params_path)
+    bound_date = config['MODEL']['bound_date']
+    n_folds = int(config['MODEL']['n_folds'])
+    fit_params = json.load(open(fit_params_path, 'r'))    
+
+    # read train data
+    train_data = pd.read_csv(train_path).drop('Unnamed: 0', axis=1)
+    # extract required train data
+    used_mask = train_data['buy_time'] >= dt.datetime.fromisoformat(bound_date).timestamp()
+    train_data = train_data[used_mask]
+    target = train_data['target']
+    # read compressed features
+    features = pd.read_csv(features_path)
+
+    # calc class weights
+    if config['MODEL']['recalc_class_weights'] == 'True':
+        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
+    folds = KFold(n_splits=n_folds, shuffle=True, random_state=29)
+
+    # build featuring pipeline
+    preparer = make_pipeline(
+        Merger(features, method='backward', fillna='nearest'),
+        TimeDifference('feats_time', 'train_time'),
+        Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
+        PurchaseRatio(by=['cluster']),
+        ColumnsCorrector('drop', ['id', 'train_time', 'feats_time']),
+        BasicFiller('mean', apply_on_fly=True),
+        # LGBMClassifier(random_state=17, class_weight='balanced', n_jobs=-1, **fit_params)        
+    )
+    estimator = RandomForestClassifier(**fit_params)
+
+    # GridSearch
+    prepared_data = preparer.fit_transform(train_data.drop('target', axis=1), target)
+    gscv = GridSearchCV(estimator, grid, cv=folds, scoring=grid_scorer)
+    gscv.fit(prepared_data, target)
+
+    # save best params
+    fit_params.update(gscv.best_params_)
+    json.dump(fit_params, open(fit_params_path, 'w'))
 
 
+# ===============================================================================
 def fit_model_job(jobs_path, train_path, features_path, model_params_path, fit_params_path, export_path):
     """ Fit and export model """
     import sys
@@ -89,7 +181,6 @@ def fit_model_job(jobs_path, train_path, features_path, model_params_path, fit_p
     used_mask = train_data['buy_time'] >= dt.datetime.fromisoformat(bound_date).timestamp()
     train_data = train_data[used_mask]
     target = train_data['target']
-
     # read compressed features
     features = pd.read_csv(features_path)
 
@@ -120,6 +211,7 @@ def fit_model_job(jobs_path, train_path, features_path, model_params_path, fit_p
     # dill.dump(pipeline, open(export_path + '.dill', 'wb'))
 
 
+# ===============================================================================
 def cv_fit_job(jobs_path, train_path, features_path, model_params_path, fit_params_path):
     """ DEBUG CROSS-FIT """
     import sys

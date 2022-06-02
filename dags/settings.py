@@ -25,4 +25,4 @@ path['temp'] = path['data'].joinpath('.temp')                               # te
 path['model_params'] = path['data'].joinpath('parameters.conf')             # model parameters file
 path['fit_params'] = path['data'].joinpath('fit_params.json')               # fit parameters file
 path['export'] = path['data'].joinpath('model.pkl')                         # export model file
-# path['grid']
+path['grid'] = path['data'].joinpath('grid_params.json')                           # parameters grid for GridSearchCV
