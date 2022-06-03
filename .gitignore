@@ -10,6 +10,7 @@
 **/dask-worker-space/
 /drafts/*
 !/drafts/pyspark_pca.ipynb
+modeling/dags
 data_test.csv
 fit.log
 model.pkl

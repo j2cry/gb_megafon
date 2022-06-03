@@ -3,6 +3,7 @@ import pandas as pd
 import datetime as dt
 from sklearn.base import TransformerMixin
 from sklearn.cluster import KMeans
+from sklearn.impute import SimpleImputer
 
 
 class TypeRecast(TransformerMixin):
@@ -159,17 +160,13 @@ class PurchaseRatio(TransformerMixin):
         return df
 
 
-class BasicFiller(TransformerMixin):
-    def __init__(self, method='mean', *, apply_on_fly=True):
-        self.method = method
+class BasicFiller(SimpleImputer):
+    def __init__(self, apply_on_fly=True, **params):
+        super().__init__(**params)
         self.apply_on_fly = apply_on_fly
-        self.values = None
-
-    def fit(self, X, y=None, **fit_params):
-        self.values = X.agg(self.method)
-        return self
     
     def transform(self, X):
-        df = X.copy()        
-        df.fillna(X.agg(self.method) if self.apply_on_fly else self.values, inplace=True)
-        return df
+        if self.apply_on_fly:
+            self.fit(X)
+        values = super().transform(X)
+        return pd.DataFrame(values, index=X.index, columns=X.columns)

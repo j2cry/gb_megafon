@@ -1,1 +1,0 @@
-/home/avagadro/projects/gb_megafon/dags/jobs/transformers.py

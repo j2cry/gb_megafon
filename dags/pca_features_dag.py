@@ -1,9 +1,4 @@
-import sys
-import pathlib
-sys.path.append(pathlib.Path().joinpath('dags', 'megafon').as_posix())
-
 import settings
-from datetime import datetime
 from airflow import DAG
 # from airflow.decorators import task
 # from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
@@ -14,14 +9,12 @@ from airflow.sensors.filesystem import FileSensor
 
 with DAG('PCA_features', description='Geekbrains+Megafon DataScience course (prepare features)',
          schedule_interval=None, catchup=False, default_args=settings.args) as dag:
-    # refresh imports
-    sys.path.append(settings.path['dag'].as_posix())
     from jobs.common import compress_features
 
     # tasks
     raw_feats_waiting = FileSensor(
         task_id='waiting_for_raw_features',
-        filepath=settings.path['raw_features'].as_posix(),
+        filepath=settings.paths['raw_features'],
         fs_conn_id='fs_default'
     )
 
@@ -36,16 +29,13 @@ with DAG('PCA_features', description='Geekbrains+Megafon DataScience course (pre
     compress_feats = PythonOperator(          # THIS FOR DEBUG ONLY
         task_id='compress_features_with_PCA',
         python_callable=compress_features,
-        op_args=[settings.path['raw_features'].as_posix(),    # features_path
-                 settings.path['model_params'].as_posix(),    # params_path
-                 settings.path['temp'].as_posix(),            # target_path
-                 ]
+        op_args=[settings.paths]
     )
 
     move_feats = BashOperator(
         task_id='move_features',
-        bash_command=f"mv {settings.path['temp'].as_posix() + '/*.csv'} {settings.path['pca_features'].as_posix()};"
-                     f"rm -rf {settings.path['temp'].as_posix()}"
+        bash_command=f"mv .compressed/*.csv {settings.paths['pca_features']};"
+                     f"rm -rf .compressed"
     )
 
     # tasks order
