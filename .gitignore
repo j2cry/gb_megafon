@@ -7,6 +7,7 @@
 !/data/correlation.csv
 !/data/parameters.conf
 !/data/fit_params.json
+!/data/grid_params.json
 **/dask-worker-space/
 /drafts/*
 !/drafts/pyspark_pca.ipynb

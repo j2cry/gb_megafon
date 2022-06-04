@@ -20,7 +20,6 @@ def data_load(train_path, features_path, bound_date):
     # extract required train data
     used_mask = train_data['buy_time'] >= dt.datetime.fromisoformat(bound_date).timestamp()
     train_data = train_data[used_mask]
-    target = train_data['target']
     # read compressed features
     features = pd.read_csv(features_path)
     return train_data, features
@@ -32,7 +31,7 @@ def get_preparer(features):
     from sklearn.pipeline import make_pipeline
 
     return make_pipeline(
-        Merger(features, method='backward', fillna='nearest'),
+        Merger(features, method='backward', fillna='mean'),
         TimeDifference('feats_time', 'train_time'),
         Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
         PurchaseRatio(by=['cluster']),
@@ -43,10 +42,8 @@ def get_preparer(features):
 
 def get_estimator(**fit_params):
     """ Model estimator """
-    from sklearn.ensemble import RandomForestClassifier
-    return RandomForestClassifier(**fit_params)
-    # from lightgbm import LGBMClassifier       # OSError: libgomp.so.1 not found
-    # return LGBMClassifier(**fit_params)
+    from lightgbm import LGBMClassifier
+    return LGBMClassifier(**fit_params)
 
 
 def folds(n_folds):

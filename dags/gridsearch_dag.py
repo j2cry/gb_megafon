@@ -42,7 +42,7 @@ with DAG('grid_search', description='Geekbrains+Megafon DataScience course (sear
     grid_search = PythonVirtualenvOperator(
         system_site_packages=False,
         requirements=['numpy==1.21.6', 'pandas==1.4.2', 'scikit-learn==1.0.2',
-                    #   'lightgbm==3.3.2'     # OSError: libgomp.so.1 not found when importing LGBMClassifier
+                      'lightgbm==3.3.2'
                       ],
         python_version='3.9',
         task_id='grid_search',
