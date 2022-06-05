@@ -29,14 +29,15 @@ with DAG('PCA_features', description='Geekbrains+Megafon DataScience course (pre
     compress_feats = PythonOperator(          # THIS FOR DEBUG ONLY
         task_id='compress_features_with_PCA',
         python_callable=compress_features,
-        op_args=[settings.paths]
+        op_args=[settings.paths, settings.data_path]
     )
 
     move_feats = BashOperator(
         task_id='move_features',
-        bash_command=f"mv .compressed/*.csv {settings.paths['pca_features']};"
-                     f"rm -rf .compressed"
+        bash_command=f"mv {settings.data_path.joinpath('.compressed', '*.csv').as_posix()} {settings.paths['pca_features']} && "
+                     f"rm -rf {settings.data_path.joinpath('.compressed').as_posix()}"
     )
 
     # tasks order
     raw_feats_waiting >> compress_feats >> move_feats
+    # raw_feats_waiting >> move_feats

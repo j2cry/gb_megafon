@@ -74,7 +74,7 @@ def run_spark_executor(ram):
     return SparkSession.builder.config(conf=config).getOrCreate()
 
 
-def compress_features(paths):
+def compress_features(paths, data_path):
     """ Compress features with PCA """
     import ast
     import configparser    
@@ -104,7 +104,7 @@ def compress_features(paths):
                          .select(['id', 'buy_time'] + [col('f')[i].alias(f'{i}') for i in range(3)])
 
     # save
-    features.repartition(1).write.mode('overwrite').csv('.compressed', header=True, sep=',')
+    features.repartition(1).write.mode('overwrite').csv(data_path.joinpath('.compressed').as_posix(), header=True, sep=',')
 
 
 # ===============================================================================
