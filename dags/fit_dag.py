@@ -11,8 +11,8 @@ with DAG('fit_model', description='Geekbrains+Megafon DataScience course (fit mo
     # tasks
     fit_model = PythonVirtualenvOperator(
         system_site_packages=False,
-        requirements=['numpy==1.21.6', 'pandas==1.4.2', 'scikit-learn==1.0.2', 'cloudpickle==2.1.0',
-                      'lightgbm==3.3.2'
+        requirements=['numpy==1.21.6', 'pandas==1.4.2', 'scikit-learn==1.0.2', 'cloudpickle==2.1.0', 'lightgbm==3.3.2',
+                      'packages/telecom_transformers-1.0.0-py3-none-any.whl'
                       ],
         python_version='3.9',
         task_id='fit_model',
