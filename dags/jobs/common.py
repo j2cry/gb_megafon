@@ -27,7 +27,7 @@ def data_load(train_path, features_path, bound_date):
 
 def get_preparer(features):
     """ Model pipeline """    
-    from  dags.jobs.transformers import Merger, TimeDifference, Clusterer, PurchaseRatio, ColumnsCorrector, BasicFiller
+    from telecom.transformers import Merger, TimeDifference, Clusterer, PurchaseRatio, ColumnsCorrector, BasicFiller
     from sklearn.pipeline import make_pipeline
 
     return make_pipeline(
@@ -112,7 +112,7 @@ def search_params_job(paths):
     """ GridSearch over given parameters """
     import logging
     import json
-    from dags.jobs import common     # STILL MODULE NOT FOUND EXCEPTION 
+    from dags.jobs import common
     from sklearn.utils.class_weight import compute_class_weight
     from sklearn.model_selection import GridSearchCV
 
