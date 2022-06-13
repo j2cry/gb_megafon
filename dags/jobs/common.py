@@ -1,31 +1,35 @@
-def load_model_config(model_params_path, fit_params_path):
-    """ Load model and fit parameters """
+def load_and_prepare(train_path, features_path, model_params_path, fit_params_path):
+    """ Load model and fit params, load and prepare train and features data; update fit params if required """
+    import ast
     import json
     import configparser
+    import pandas as pd
+    import datetime as dt
+    from sklearn.utils.class_weight import compute_class_weight
 
     # read model parameters
     config = configparser.ConfigParser()
     config.read(model_params_path)
     fit_params = json.load(open(fit_params_path, 'r'))
-    return config, fit_params
-
-
-def data_load(train_path, features_path, bound_date):
-    """ Load train and features data """
-    import pandas as pd
-    import datetime as dt
 
     # read train data
     train_data = pd.read_csv(train_path).drop('Unnamed: 0', axis=1)
     # extract required train data
-    used_mask = train_data['buy_time'] >= dt.datetime.fromisoformat(bound_date).timestamp()
+    used_mask = train_data['buy_time'] >= dt.datetime.fromisoformat(config['MODEL']['bound_date']).timestamp()
     train_data = train_data[used_mask]
     # read compressed features
     features = pd.read_csv(features_path)
-    return train_data, features
+
+    # update fit_params depending on model params    
+    fit_params.update({k: ast.literal_eval(v) for k, v in config['FIXED'].items()})     # parse all FIXED parameters
+    # calc class weights
+    if config['FIT_PARAMS']['adaptive_class_balance'] == 'True':
+        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=train_data['target'])))
+    
+    return train_data, features, config, fit_params
 
 
-def get_preparer(features):
+def get_preparer_pipeline(features):
     """ Model pipeline """    
     from telecom.transformers import Merger, TimeDifference, Clusterer, PurchaseRatio, ColumnsCorrector, BasicFiller
     from sklearn.pipeline import make_pipeline
@@ -87,7 +91,7 @@ def compress_features(paths, data_path):
     # read parameters
     config = configparser.ConfigParser()
     config.read(paths['model_params'])
-    drop_feats = ast.literal_eval(config['FEATURES']['drop'])
+    drop_feats = ast.literal_eval(config['MODEL']['drop_features'])
 
     # read raw features
     feats = spark.read.csv(paths['raw_features'], sep='\t', header=True, inferSchema=True).drop('Unnamed: 0', *drop_feats)
@@ -113,24 +117,18 @@ def search_params_job(paths):
     import logging
     import json
     from dags.jobs import common
-    from sklearn.utils.class_weight import compute_class_weight
     from sklearn.model_selection import GridSearchCV
 
     # load grid
     grid = json.load(open(paths['grid'], 'r'))
     # prepare model
-    config, fit_params = common.load_model_config(paths['model_params'], paths['fit_params'])
-    data, features = common.data_load(paths['train'], paths['pca_features'], config['MODEL']['bound_date'])
-    preparer = common.get_preparer(features)
+    data, features, config, fit_params = common.load_and_prepare(paths['train'], paths['pca_features'], paths['model_params'], paths['fit_params'])
+    preparer = common.get_preparer_pipeline(features)
     target = data['target']
     prepared_data = preparer.fit_transform(data.drop('target', axis=1), target)
 
-    # calc class weights
-    if config['FIT_PARAMS']['adaptive_class_balance'] == 'True':
-        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
-    n_folds = int(config['MODEL']['n_folds'])
-    
     # GridSearch
+    n_folds = int(config['MODEL']['n_folds'])
     est = common.get_estimator(**fit_params)
     gscv = GridSearchCV(est, grid, cv=common.folds(n_folds), scoring=common.scorer)
     gscv.fit(prepared_data, target)
@@ -154,14 +152,9 @@ def fit_model_job(paths):
     from sklearn.pipeline import make_pipeline
 
     # prepare model
-    config, fit_params = common.load_model_config(paths['model_params'], paths['fit_params'])
-    data, features = common.data_load(paths['train'], paths['pca_features'], config['MODEL']['bound_date'])
-    preparer = common.get_preparer(features)
+    data, features, _, fit_params = common.load_and_prepare(paths['train'], paths['pca_features'], paths['model_params'], paths['fit_params'])
+    preparer = common.get_preparer_pipeline(features)
     target = data['target']    
-
-    # calc class weights
-    if config['FIT_PARAMS']['adaptive_class_balance'] == 'True':
-        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
     
     # fit model and calc metric
     model = make_pipeline(preparer, common.get_estimator(**fit_params))
@@ -179,19 +172,12 @@ def cross_validate_job(paths):
     """ Cross validation with current parameters """
     import logging
     from dags.jobs import common
-    from sklearn.utils.class_weight import compute_class_weight
-    from sklearn.pipeline import make_pipeline
 
     # prepare model
-    config, fit_params = common.load_model_config(paths['model_params'], paths['fit_params'])
-    data, features = common.data_load(paths['train'], paths['pca_features'], config['MODEL']['bound_date'])
-    preparer = common.get_preparer(features)
+    data, features, config, fit_params = common.load_and_prepare(paths['train'], paths['pca_features'], paths['model_params'], paths['fit_params'])
+    preparer = common.get_preparer_pipeline(features)
     target = data['target']
     prepared_data = preparer.fit_transform(data.drop('target', axis=1), target)
-
-    # calc class weights
-    if config['FIT_PARAMS']['adaptive_class_balance'] == 'True':
-        fit_params['class_weight'] = dict(enumerate(compute_class_weight('balanced', classes=[0, 1], y=target)))
 
     metrics = []
     models = []
