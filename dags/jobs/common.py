@@ -35,7 +35,7 @@ def get_preparer_pipeline(features):
     from sklearn.pipeline import make_pipeline
 
     return make_pipeline(
-        Merger(features, method='backward', fillna='mean'),
+        Merger(features, method='backward', fillna='nearest'),
         TimeDifference('feats_time', 'train_time'),
         Clusterer(['0', '1', '2'], n_clusters=8, random_state=13),
         PurchaseRatio(by=['cluster']),
